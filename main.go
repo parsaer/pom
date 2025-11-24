@@ -2,6 +2,8 @@ package main
 
 import (
 	"log"
+	"os/exec"
+	"runtime"
 	"strings"
 	"time"
 
@@ -9,6 +11,7 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/huh"
 	"github.com/charmbracelet/lipgloss"
+	"github.com/gen2brain/beeep"
 )
 
 const (
@@ -101,18 +104,28 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch m.mode {
 	case Focusing:
 		if time.Since(m.startTime) > m.focusTime {
+			notify("Focus Complete", "Time to take a break!")
 			m.mode = Paused
 			m.startTime = time.Now()
 			m.progress.FullColor = breakColor
 		}
 	case Breaking:
 		if time.Since(m.startTime) > m.breakTime {
+			notify("Break Complete", "Back to work!")
 			m.quitting = true
 			return m, tea.Quit
 		}
 	}
 
 	return m, tea.Batch(cmds...)
+}
+
+func notify(title, msg string) {
+	if runtime.GOOS == "linux" {
+		exec.Command("notify-send", "--expire-time=0", title, msg).Run()
+		return
+	}
+	beeep.Notify(title, msg, "")
 }
 
 func (m Model) View() string {
