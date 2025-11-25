@@ -35,6 +35,7 @@ const (
 	Focusing
 	Paused
 	Breaking
+	FinishedFocus
 )
 
 type Model struct {
@@ -44,8 +45,9 @@ type Model struct {
 
 	mode mode
 
-	focusTime time.Duration
-	breakTime time.Duration
+	focusTime          time.Duration
+	breakTime          time.Duration
+	elapsedBeforePause time.Duration
 
 	progress progress.Model
 }
@@ -70,15 +72,28 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		cmds = append(cmds, tea.Tick(tickInterval, tickCmd))
 	case tea.KeyMsg:
 		switch msg.String() {
+		case " ":
+			if m.mode == Focusing {
+				m.elapsedBeforePause = time.Since(m.startTime)
+				m.mode = Paused
+			} else if m.mode == Paused {
+				m.startTime = time.Now().Add(-m.elapsedBeforePause)
+				m.mode = Focusing
+			}
 		case "q":
 			switch m.mode {
 			case Focusing:
-				m.mode = Paused
+				m.mode = Breaking
 				m.startTime = time.Now()
 				m.progress.FullColor = breakColor
 			case Paused:
 				m.mode = Breaking
 				m.startTime = time.Now()
+				m.progress.FullColor = breakColor
+			case FinishedFocus:
+				m.mode = Breaking
+				m.startTime = time.Now()
+				m.progress.FullColor = breakColor
 			case Breaking:
 				m.quitting = true
 				return m, tea.Quit
@@ -87,9 +102,10 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.quitting = true
 			return m, tea.Quit
 		default:
-			if m.mode == Paused {
+			if m.mode == Paused || m.mode == FinishedFocus {
 				m.mode = Breaking
 				m.startTime = time.Now()
+				m.progress.FullColor = breakColor
 			}
 		}
 	}
@@ -105,7 +121,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case Focusing:
 		if time.Since(m.startTime) > m.focusTime {
 			notify("Focus Complete", "Time to take a break!")
-			m.mode = Paused
+			m.mode = FinishedFocus
 			m.startTime = time.Now()
 			m.progress.FullColor = breakColor
 		}
@@ -148,7 +164,8 @@ func (m Model) View() string {
 		s.WriteString(helpStyle.Render("Press 'q' to skip"))
 	case Paused:
 		s.WriteString(pausedStyle.String())
-		s.WriteString("\n\nFocus time is done, time to take a break.")
+		s.WriteString("\n\nTimer paused. Press space to resume.")
+		// s.WriteString("\n\nFocus time is done, time to take a break.")
 		s.WriteString(helpStyle.Render("press any key to continue.\n"))
 	case Breaking:
 		percent = float64(elapsed) / float64(m.breakTime)
@@ -157,6 +174,10 @@ func (m Model) View() string {
 		s.WriteString("\n\n")
 		s.WriteString(m.progress.ViewAs(percent))
 		s.WriteString(helpStyle.Render("press 'q' to quit"))
+	case FinishedFocus:
+		s.WriteString(pausedStyle.String())
+		s.WriteString("\n\nFocus finished! Time to take a break.")
+		s.WriteString("\n\nPress any key to start break.\n")
 	}
 
 	return baseTimerStyle.Render(s.String())

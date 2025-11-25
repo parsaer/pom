@@ -41,5 +41,5 @@ go install github.com/parsaer/pom@main
 
 ## License
 
-[MIT](https://github.com/parsaer/pom/blob/master/LICENSE)
+[MIT](https://github.com/parsaer/pom/blob/main/LICENSE)
 
