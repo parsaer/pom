@@ -1,8 +1,11 @@
 package main
 
 import (
+	"encoding/json"
 	"log"
+	"os"
 	"os/exec"
+	"path/filepath"
 	"runtime"
 	"strings"
 	"time"
@@ -51,6 +54,40 @@ type Model struct {
 	elapsedBeforePause time.Duration
 
 	progress progress.Model
+}
+
+type SessionLog struct {
+	Type     string        `json:"type"`
+	Start    time.Time     `json:"start"`
+	End      time.Time     `json:"end"`
+	Duration time.Duration `json:"duration"`
+}
+
+func appendLog(entry SessionLog) error {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return err
+	}
+
+	path := filepath.Join(home, ".local", "share", "pom")
+	os.MkdirAll(path, 0755)
+
+	logFile := filepath.Join(path, "pom.log")
+
+	f, err := os.OpenFile(logFile, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+
+	data, err := json.Marshal(entry)
+	if err != nil {
+		return err
+	}
+
+	_, err = f.Write(append(data, '\n'))
+	return err
+
 }
 
 func (m Model) Init() tea.Cmd {
@@ -135,6 +172,13 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch m.mode {
 	case Focusing:
 		if time.Since(m.startTime) > m.focusTime {
+			end := time.Now()
+			appendLog(SessionLog{
+				Type:     "focus",
+				Start:    m.startTime,
+				End:      end,
+				Duration: end.Sub(m.startTime),
+			})
 			notify("Focus Complete", "Time to take a break!")
 			m.mode = FinishedFocus
 			m.startTime = time.Now()
@@ -142,6 +186,13 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 	case Breaking:
 		if time.Since(m.startTime) > m.breakTime {
+			end := time.Now()
+			appendLog(SessionLog{
+				Type:     "break",
+				Start:    m.startTime,
+				End:      end,
+				Duration: end.Sub(m.startTime),
+			})
 			notify("Break Complete", "Back to work!")
 			m.mode = FinishedBreak
 			m.startTime = time.Now()
