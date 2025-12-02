@@ -39,6 +39,21 @@ Install with Go:
 go install github.com/parsaer/pom@main
 ```
 
+## Roadmap
+
+A few adventures planned:
+
+- [x] Pause + resume sessions
+- [x] Add notifications (popup)
+- [ ] Weekly & daily activity logs
+- [ ] Background behavior
+- [ ] Configurable number of sessions
+- [ ] Export logs
+- [ ] Simple TUI dashboard for stats
+- [ ] Config file for persistent settings
+- [ ] Theme customizations?
+
+
 ## License
 
 [MIT](https://github.com/parsaer/pom/blob/main/LICENSE)
