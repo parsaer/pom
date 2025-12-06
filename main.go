@@ -40,6 +40,7 @@ const (
 	Breaking
 	FinishedFocus
 	FinishedBreak
+	ShowingLogs
 )
 
 type Model struct {
@@ -61,33 +62,6 @@ type SessionLog struct {
 	Start    time.Time     `json:"start"`
 	End      time.Time     `json:"end"`
 	Duration time.Duration `json:"duration"`
-}
-
-func appendLog(entry SessionLog) error {
-	home, err := os.UserHomeDir()
-	if err != nil {
-		return err
-	}
-
-	path := filepath.Join(home, ".local", "share", "pom")
-	os.MkdirAll(path, 0755)
-
-	logFile := filepath.Join(path, "pom.log")
-
-	f, err := os.OpenFile(logFile, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
-	if err != nil {
-		return err
-	}
-	defer f.Close()
-
-	data, err := json.Marshal(entry)
-	if err != nil {
-		return err
-	}
-
-	_, err = f.Write(append(data, '\n'))
-	return err
-
 }
 
 func (m Model) Init() tea.Cmd {
@@ -203,14 +177,6 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	return m, tea.Batch(cmds...)
 }
 
-func notify(title, msg string) {
-	if runtime.GOOS == "linux" {
-		exec.Command("notify-send", "--expire-time=0", title, msg).Run()
-		return
-	}
-	beeep.Notify(title, msg, "")
-}
-
 func (m Model) View() string {
 	if m.quitting {
 		return ""
@@ -262,6 +228,40 @@ func NewModel() Model {
 	}
 }
 
+func notify(title, msg string) {
+	if runtime.GOOS == "linux" {
+		exec.Command("notify-send", "--expire-time=0", title, msg).Run()
+		return
+	}
+	beeep.Notify(title, msg, "")
+}
+
+func appendLog(entry SessionLog) error {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return err
+	}
+
+	path := filepath.Join(home, ".local", "share", "pom")
+	os.MkdirAll(path, 0755)
+
+	logFile := filepath.Join(path, "pom.log")
+
+	f, err := os.OpenFile(logFile, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+
+	data, err := json.Marshal(entry)
+	if err != nil {
+		return err
+	}
+
+	_, err = f.Write(append(data, '\n'))
+	return err
+}
+
 func main() {
 	focusTheme := huh.ThemeCharm()
 	focusTheme.Focused.Base = focusTheme.Focused.Base.Border(lipgloss.HiddenBorder())
@@ -289,7 +289,7 @@ func main() {
 				Value(&focusTime).
 				Key("focus").
 				Options(
-					huh.NewOption("25 minutes", 5*time.Second),
+					huh.NewOption("25 minutes", 5*time.Minute),
 					huh.NewOption("30 minutes", 30*time.Minute),
 					huh.NewOption("45 minutes", 45*time.Minute),
 					huh.NewOption("1 hour", time.Hour),
@@ -301,7 +301,7 @@ func main() {
 				Value(&breakTime).
 				Key("break").
 				Options(
-					huh.NewOption("5 minutes", 5*time.Second),
+					huh.NewOption("5 minutes", 5*time.Minute),
 					huh.NewOption("10 minutes", 10*time.Minute),
 					huh.NewOption("15 minutes", 15*time.Minute),
 					huh.NewOption("20 minutes", 20*time.Minute),
